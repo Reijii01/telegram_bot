@@ -1,0 +1,12 @@
+# Игнорировать базу данных
+*.db
+db/*.db
+
+# Python
+__pycache__/
+*.pyc
+
+# IDE/OS
+.vscode/
+*.log
+.env
