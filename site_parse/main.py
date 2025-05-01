@@ -8,7 +8,8 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 
 # Путь к базе
-DB_PATH = r"C:\Users\User\Desktop\create.db\db\event_status.db"
+DB_PATH = 'db/event_status.db'
+
 
 # Функция создания драйвера
 def create_driver():
