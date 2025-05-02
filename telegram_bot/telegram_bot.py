@@ -5,13 +5,12 @@ import logging
 from datetime import datetime
 from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
-
-
 from dotenv import load_dotenv
+
 load_dotenv()
 
 # Путь к базе данных
-DB_PATH ='/root/telegram_watcher/telegram_bot/create.db/db/event_status.db'
+DB_PATH = '/root/telegram_watcher/telegram_bot/create.db/db/event_status.db'
 
 # Настройки бота
 TOKEN = os.getenv("BOT_TOKEN")
@@ -34,6 +33,15 @@ def get_event_status():
     else:
         return None, None
 
+# Получение списка событий и времени их последнего обновления
+def get_events():
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    c.execute("SELECT event_name, event_time, updated_at FROM events ORDER BY rowid DESC")
+    results = c.fetchall()
+    conn.close()
+    return results
+
 # Хендлер для личных сообщений
 async def private_message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_chat.type == 'private':
@@ -49,7 +57,6 @@ async def status_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_chat.type in ['group', 'supergroup']:
         status, updated_at = get_event_status()
         if status:
-            # Форматируем дату в красивый вид
             if updated_at:
                 dt = datetime.fromisoformat(updated_at)
                 updated_str = dt.strftime('%d.%m.%Y %H:%M')
@@ -59,33 +66,52 @@ async def status_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         else:
             await update.message.reply_text("⚠️ Статус события пока не найден.")
 
-# Функция мониторинга базы данных
+# Хендлер команды /events
+async def events_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.effective_chat.type in ['group', 'supergroup']:
+        events = get_events()
+        if events:
+            message = "📅 Список событий:\n"
+            for event_name, event_time, updated_at in events:
+                dt = datetime.fromisoformat(event_time)
+                event_time_str = dt.strftime('%d.%m.%Y %H:%M')
+                if updated_at:
+                    dt_updated = datetime.fromisoformat(updated_at)
+                    updated_str = dt_updated.strftime('%d.%m.%Y %H:%M')
+                    message += f"{event_name} - {event_time_str}\n🕒 Последнее обновление: {updated_str}\n\n"
+                else:
+                    message += f"{event_name} - {event_time_str}\n🕒 Обновление не найдено\n\n"
+            await update.message.reply_text(message)
+        else:
+            await update.message.reply_text("⚠️ События не найдены.")
+
+# Функция мониторинга базы данных для событий
 async def monitor_db(application: Application):
     await asyncio.sleep(5)  # Ждем чуть-чуть после запуска приложения
     logger.info("🚀 Мониторинг базы данных запущен.")
 
-    last_status, _ = get_event_status()
-
-    # После старта сразу отправляем первое сообщение
-    if last_status == "SOLD OUT":
-        await application.bot.send_message(chat_id=GROUP_CHAT_ID, text="🔴 Сейчас доступна только кнопка SOLD OUT.")
+    last_events = get_events()
 
     while True:
-        current_status, _ = get_event_status()
+        current_events = get_events()
 
-        if last_status == "SOLD OUT" and current_status == "BUY TICKETS":
-            await application.bot.send_message(chat_id=GROUP_CHAT_ID, text="🎉 Билеты доступны! Статус изменился на BUY TICKETS!")
+        # Проверка, если события изменились
+        if current_events != last_events:
+            await application.bot.send_message(chat_id=CHAT_ID, text="📢 Обновления в событиях:\n")
+            for event_name, event_time, _ in current_events:
+                await application.bot.send_message(chat_id=CHAT_ID, text=f"Событие: {event_name} — Время: {event_time}")
+            last_events = current_events
 
-        last_status = current_status
         await asyncio.sleep(60)  # Проверка каждую минуту
 
 # Основная функция запуска бота
 def main():
-    application = Application.builder().token(TELEGRAM_TOKEN).build()
+    application = Application.builder().token(TOKEN).build()
 
     # Хендлеры
     application.add_handler(CommandHandler("start01", start01_command))
     application.add_handler(CommandHandler("status", status_command))
+    application.add_handler(CommandHandler("events", events_command))
     application.add_handler(MessageHandler(filters.ChatType.PRIVATE, private_message_handler))
 
     # Фоновая задача мониторинга базы
@@ -96,4 +122,5 @@ def main():
 
 if __name__ == '__main__':
     main()
+
 
