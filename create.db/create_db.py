@@ -2,7 +2,8 @@ import sqlite3
 import os
 
 # Путь к базе
-DB_PATH = 'db/event_status.db'
+DB_PATH ='/root/telegram_watcher/telegram_bot/create.db/db/event_status.db'
+
 
 
 def create_db():
