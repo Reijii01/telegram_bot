@@ -1,9 +1,8 @@
-import asyncio
-import sqlite3
 import os
+import sqlite3
 import time
-
 from datetime import datetime
+
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
@@ -15,65 +14,75 @@ DB_PATH = '/root/telegram_watcher/telegram_bot/create.db/db/event_status.db'
 
 def create_driver():
     chrome_options = Options()
-    chrome_options.add_argument('--headless=new')  # новый стабильный headless
+    chrome_options.add_argument('--headless=new')
     chrome_options.add_argument('--no-sandbox')
     chrome_options.add_argument('--disable-dev-shm-usage')
     chrome_options.add_argument('--disable-gpu')
     chrome_options.add_argument('--start-maximized')
-    chrome_options.add_argument('--disable-infobars')
-    chrome_options.add_argument('--disable-extensions')
     return webdriver.Chrome(options=chrome_options)
 
 
+def init_db():
+    os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
+    with sqlite3.connect(DB_PATH) as conn:
+        c = conn.cursor()
+        c.execute('''
+            CREATE TABLE IF NOT EXISTS status (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                status TEXT NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        ''')
+        c.execute('''
+            CREATE TABLE IF NOT EXISTS events (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                source TEXT,
+                title TEXT,
+                description TEXT,
+                link_text TEXT,
+                link_url TEXT,
+                event_date TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        ''')
+        conn.commit()
+
 
 def save_status_to_db(status):
-    conn = sqlite3.connect(DB_PATH)
-    c = conn.cursor()
-    c.execute('''
-        CREATE TABLE IF NOT EXISTS status (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            status TEXT NOT NULL,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-    ''')
-    c.execute("INSERT INTO status (status) VALUES (?)", (status,))
-    conn.commit()
-    conn.close()
+    try:
+        with sqlite3.connect(DB_PATH) as conn:
+            c = conn.cursor()
+            c.execute("INSERT INTO status (status) VALUES (?)", (status,))
+            conn.commit()
+            print(f"🎟️ Статус '{status}' сохранён в таблицу status.")
+    except Exception as e:
+        print(f"❌ Ошибка записи статуса в БД: {e}")
 
 
-def insert_event_if_new(conn, event):
-    c = conn.cursor()
-    c.execute('''
-        CREATE TABLE IF NOT EXISTS events (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            source TEXT,
-            title TEXT,
-            description TEXT,
-            link_text TEXT,
-            link_url TEXT,
-            event_date TEXT,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-    ''')
-    c.execute('''
-        SELECT COUNT(*) FROM events
-        WHERE title = ? AND source = ?
-    ''', (event['title'], event['source']))
-    exists = c.fetchone()[0]
-
-    if not exists:
-        c.execute('''
-            INSERT INTO events (source, title, description, link_text, link_url, event_date)
-            VALUES (?, ?, ?, ?, ?, ?)
-        ''', (
-            event['source'], event['title'], event['description'],
-            event['link_text'], event['link_url'], event['event_date']
-        ))
-        conn.commit()
-        print(f"🆕 Добавлено новое событие: {event['title']} ({event['source']})")
-    else:
-        print(f"⏩ Уже существует: {event['title']} ({event['source']})")
+def insert_event_if_new(event):
+    try:
+        with sqlite3.connect(DB_PATH) as conn:
+            c = conn.cursor()
+            c.execute('''
+                SELECT COUNT(*) FROM events
+                WHERE title = ? AND source = ?
+            ''', (event['title'], event['source']))
+            exists = c.fetchone()[0]
+            if not exists:
+                c.execute('''
+                    INSERT INTO events (source, title, description, link_text, link_url, event_date)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                ''', (
+                    event['source'], event['title'], event['description'],
+                    event['link_text'], event['link_url'], event['event_date']
+                ))
+                conn.commit()
+                print(f"🆕 Добавлено новое событие: {event['title']} ({event['source']})")
+            else:
+                print(f"⏩ Уже существует: {event['title']} ({event['source']})")
+    except Exception as e:
+        print(f"❌ Ошибка вставки события: {e}")
 
 
 def parse_single_event(driver):
@@ -84,74 +93,68 @@ def parse_single_event(driver):
         WebDriverWait(driver, 30).until(
             EC.presence_of_element_located((By.CLASS_NAME, 'btn-cta-golden'))
         )
-        button_block = driver.find_element(By.CLASS_NAME, 'btn-cta-golden')
-        button_text = button_block.find_element(By.TAG_NAME, 'a').text.strip()
-
+        button_text = driver.find_element(By.CLASS_NAME, 'btn-cta-golden') \
+                            .find_element(By.TAG_NAME, 'a').text.strip()
         status = "BUY TICKETS" if button_text == "BUY TICKETS" else "SOLD OUT"
         save_status_to_db(status)
-        print(f"🎟️ Статус '{status}' сохранён в таблицу status.")
     except Exception as e:
         print(f"❌ Ошибка при парсинге Euroleague: {e}")
 
 
-async def parse_yas_island(driver, conn):
-    driver.get('https://www.yasisland.com/en/events')
-    await asyncio.sleep(3)
+def parse_yas_island(driver):
     try:
+        driver.get('https://www.yasisland.com/en/events')
+        time.sleep(3)
         cards = driver.find_elements(By.CLASS_NAME, 'tile--card')
         for card in cards:
             try:
                 title = card.find_element(By.CLASS_NAME, 'tile__title').text
                 description = card.find_element(By.CLASS_NAME, 'tile__text').text
                 link_elem = card.find_element(By.TAG_NAME, 'a')
-                link_text = link_elem.text
-                link_url = link_elem.get_attribute('href')
                 event = {
                     'source': 'Yas Island',
                     'title': title,
                     'description': description,
-                    'link_text': link_text,
-                    'link_url': link_url,
+                    'link_text': link_elem.text,
+                    'link_url': link_elem.get_attribute('href'),
                     'event_date': ''
                 }
-                insert_event_if_new(conn, event)
+                insert_event_if_new(event)
             except Exception as e:
                 print(f"⚠️ Ошибка в карточке Yas Island: {e}")
     except Exception as e:
         print(f"⚠️ Ошибка Yas Island: {e}")
 
 
-async def parse_etihad_arena(driver, conn):
-    driver.get('https://www.etihadarena.ae/en/events')
-    await asyncio.sleep(3)
+def parse_etihad_arena(driver):
     try:
+        driver.get('https://www.etihadarena.ae/en/events')
+        time.sleep(3)
         cards = driver.find_elements(By.CLASS_NAME, 'event-card')
         for card in cards:
             try:
                 title = card.find_element(By.CLASS_NAME, 'event-card__title').text
                 description = card.find_element(By.CLASS_NAME, 'event-card__description').text
                 link_elem = card.find_element(By.TAG_NAME, 'a')
-                link_text = link_elem.text
-                link_url = link_elem.get_attribute('href')
                 event = {
                     'source': 'Etihad Arena',
                     'title': title,
                     'description': description,
-                    'link_text': link_text,
-                    'link_url': link_url,
+                    'link_text': link_elem.text,
+                    'link_url': link_elem.get_attribute('href'),
                     'event_date': ''
                 }
-                insert_event_if_new(conn, event)
+                insert_event_if_new(event)
             except Exception as e:
                 print(f"⚠️ Ошибка в карточке Etihad: {e}")
     except Exception as e:
         print(f"⚠️ Ошибка Etihad: {e}")
 
 
-async def parse_ticketmaster(driver, conn):
-    driver.get('https://www.ticketmaster.ae')
-    await asyncio.sleep(3)
+def parse_ticketmaster(driver):
     try:
+        driver.get('https://www.ticketmaster.ae')
+        time.sleep(3)
         container = driver.find_element(By.CSS_SELECTOR, '[data-testid="eventList"]')
         cards = container.find_elements(By.CLASS_NAME, 'sc-3a43054f-4')
         for card in cards:
@@ -159,53 +162,48 @@ async def parse_ticketmaster(driver, conn):
                 title = card.find_element(By.CLASS_NAME, 'sc-3a43054f-9').text
                 description = card.find_element(By.CLASS_NAME, 'sc-3a43054f-13').text
                 link_elem = card.find_element(By.TAG_NAME, 'a')
-                link_url = link_elem.get_attribute('href')
                 event_date = card.find_element(By.CLASS_NAME, 'sc-3a43054f-12').text
                 event = {
                     'source': 'Ticketmaster',
                     'title': title,
                     'description': description,
                     'link_text': '',
-                    'link_url': link_url,
+                    'link_url': link_elem.get_attribute('href'),
                     'event_date': event_date
                 }
-                insert_event_if_new(conn, event)
+                insert_event_if_new(event)
             except Exception as e:
                 print(f"⚠️ Ошибка в карточке Ticketmaster: {e}")
     except Exception as e:
         print(f"⚠️ Ошибка eventList: {e}")
 
 
-async def main_loop():
-    os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
+def main_loop():
+    init_db()
     driver = create_driver()
-    conn = sqlite3.connect(DB_PATH)
     driver_start_time = time.time()
 
     try:
         while True:
-            now = time.time()
-
-            if now - driver_start_time > 43200:
+            if time.time() - driver_start_time > 43200:
                 print("🔄 Перезапуск драйвера после 12 часов...")
                 driver.quit()
                 driver = create_driver()
                 driver_start_time = time.time()
 
-            # Парсинг одного события (статуса)
             parse_single_event(driver)
-
-            # Парсинг всех событий
-            await parse_yas_island(driver, conn)
-            await parse_etihad_arena(driver, conn)
-            await parse_ticketmaster(driver, conn)
+            parse_yas_island(driver)
+            parse_etihad_arena(driver)
+            parse_ticketmaster(driver)
 
             print("⏳ Ожидание 60 секунд...\n")
-            await asyncio.sleep(60)
+            time.sleep(60)
+
+    except KeyboardInterrupt:
+        print("🛑 Остановлено пользователем.")
     finally:
         driver.quit()
-        conn.close()
 
 
 if __name__ == '__main__':
-    asyncio.run(main_loop())
+    main_loop()

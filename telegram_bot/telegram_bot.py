@@ -37,7 +37,7 @@ def get_event_status():
 def get_events():
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
-    c.execute("SELECT event_name, event_time, updated_at FROM events ORDER BY rowid DESC")
+    c.execute("SELECT title, event_date, updated_at FROM events ORDER BY rowid DESC")
     results = c.fetchall()
     conn.close()
     return results
@@ -58,8 +58,11 @@ async def status_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         status, updated_at = get_event_status()
         if status:
             if updated_at:
-                dt = datetime.fromisoformat(updated_at)
-                updated_str = dt.strftime('%d.%m.%Y %H:%M')
+                try:
+                    dt = datetime.fromisoformat(updated_at)
+                    updated_str = dt.strftime('%d.%m.%Y %H:%M')
+                except ValueError:
+                    updated_str = updated_at
                 await update.message.reply_text(f"ℹ️ Текущий статус события: {status}\n🕒 Последнее обновление: {updated_str}")
             else:
                 await update.message.reply_text(f"ℹ️ Текущий статус события: {status}")
@@ -72,37 +75,40 @@ async def events_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         events = get_events()
         if events:
             message = "📅 Список событий:\n"
-            for event_name, event_time, updated_at in events:
-                dt = datetime.fromisoformat(event_time)
-                event_time_str = dt.strftime('%d.%m.%Y %H:%M')
+            for title, event_date, updated_at in events:
+                try:
+                    dt = datetime.fromisoformat(event_date)
+                    event_time_str = dt.strftime('%d.%m.%Y %H:%M')
+                except ValueError:
+                    event_time_str = event_date  # если дата в другом формате
+
                 if updated_at:
-                    dt_updated = datetime.fromisoformat(updated_at)
-                    updated_str = dt_updated.strftime('%d.%m.%Y %H:%M')
-                    message += f"{event_name} - {event_time_str}\n🕒 Последнее обновление: {updated_str}\n\n"
+                    try:
+                        dt_updated = datetime.fromisoformat(updated_at)
+                        updated_str = dt_updated.strftime('%d.%m.%Y %H:%M')
+                    except ValueError:
+                        updated_str = updated_at
+                    message += f"{title} - {event_time_str}\n🕒 Последнее обновление: {updated_str}\n\n"
                 else:
-                    message += f"{event_name} - {event_time_str}\n🕒 Обновление не найдено\n\n"
+                    message += f"{title} - {event_time_str}\n🕒 Обновление не найдено\n\n"
             await update.message.reply_text(message)
         else:
             await update.message.reply_text("⚠️ События не найдены.")
 
-# Функция мониторинга базы данных для событий
+# Фоновая задача мониторинга базы данных
 async def monitor_db(application: Application):
-    await asyncio.sleep(5)  # Ждем чуть-чуть после запуска приложения
+    await asyncio.sleep(5)
     logger.info("🚀 Мониторинг базы данных запущен.")
-
     last_events = get_events()
 
     while True:
         current_events = get_events()
-
-        # Проверка, если события изменились
         if current_events != last_events:
             await application.bot.send_message(chat_id=CHAT_ID, text="📢 Обновления в событиях:\n")
-            for event_name, event_time, _ in current_events:
-                await application.bot.send_message(chat_id=CHAT_ID, text=f"Событие: {event_name} — Время: {event_time}")
+            for title, event_date, _ in current_events:
+                await application.bot.send_message(chat_id=CHAT_ID, text=f"Событие: {title} — Время: {event_date}")
             last_events = current_events
-
-        await asyncio.sleep(60)  # Проверка каждую минуту
+        await asyncio.sleep(60)
 
 # Основная функция запуска бота
 def main():
@@ -122,5 +128,6 @@ def main():
 
 if __name__ == '__main__':
     main()
+
 
 
