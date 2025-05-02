@@ -37,7 +37,7 @@ def get_event_status():
 def get_events():
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
-    c.execute("SELECT title, event_date, updated_at FROM events ORDER BY rowid DESC")
+    c.execute("SELECT id, title, event_date, updated_at FROM events ORDER BY updated_at DESC")
     results = c.fetchall()
     conn.close()
     return results
@@ -75,7 +75,7 @@ async def events_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         events = get_events()
         if events:
             message = "📅 Список событий:\n"
-            for title, event_date, updated_at in events:
+            for event_id, title, event_date, updated_at in events:
                 try:
                     dt = datetime.fromisoformat(event_date)
                     event_time_str = dt.strftime('%d.%m.%Y %H:%M')
@@ -103,10 +103,12 @@ async def monitor_db(application: Application):
 
     while True:
         current_events = get_events()
+        # Сравниваем только измененные события
         if current_events != last_events:
-            await application.bot.send_message(chat_id=CHAT_ID, text="📢 Обновления в событиях:\n")
-            for title, event_date, _ in current_events:
-                await application.bot.send_message(chat_id=CHAT_ID, text=f"Событие: {title} — Время: {event_date}")
+            logger.info("📢 Обновления в событиях.")
+            # Отправляем обновления
+            for _, title, event_date, _ in current_events:
+                await application.bot.send_message(chat_id=CHAT_ID, text=f"Событие обновлено: {title} — Время: {event_date}")
             last_events = current_events
         await asyncio.sleep(60)
 
@@ -128,6 +130,7 @@ def main():
 
 if __name__ == '__main__':
     main()
+
 
 
 

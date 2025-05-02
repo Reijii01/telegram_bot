@@ -14,7 +14,7 @@ def create_db():
     c = conn.cursor()
 
     # Таблица для статуса
-    c.execute('''
+    c.execute(''' 
         CREATE TABLE IF NOT EXISTS status (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             status TEXT NOT NULL,
@@ -24,7 +24,7 @@ def create_db():
     ''')
 
     # Таблица для событий
-    c.execute('''
+    c.execute(''' 
         CREATE TABLE IF NOT EXISTS events (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             source TEXT NOT NULL,          -- Yas Island / Etihad / Ticketmaster
@@ -38,11 +38,35 @@ def create_db():
         )
     ''')
 
+    # Триггер для обновления поля updated_at при изменении данных в таблице status
+    c.execute('''
+        CREATE TRIGGER IF NOT EXISTS update_status_updated_at
+        AFTER UPDATE ON status
+        FOR EACH ROW
+        BEGIN
+            UPDATE status
+            SET updated_at = CURRENT_TIMESTAMP
+            WHERE id = OLD.id;
+        END;
+    ''')
+
+    # Триггер для обновления поля updated_at при изменении данных в таблице events
+    c.execute('''
+        CREATE TRIGGER IF NOT EXISTS update_events_updated_at
+        AFTER UPDATE ON events
+        FOR EACH ROW
+        BEGIN
+            UPDATE events
+            SET updated_at = CURRENT_TIMESTAMP
+            WHERE id = OLD.id;
+        END;
+    ''')
+
     # Пример вставки тестового статуса
     c.execute("INSERT INTO status (status) VALUES (?)", ("Тестовый статус",))
 
     conn.commit()
-    print("✅ Таблицы созданы и тестовая запись добавлена!")
+    print("✅ Таблицы созданы, триггеры установлены и тестовая запись добавлена!")
 
     # Читаем последнюю запись из status
     c.execute("SELECT id, status, created_at, updated_at FROM status ORDER BY id DESC LIMIT 1")
@@ -54,4 +78,5 @@ def create_db():
 
 if __name__ == '__main__':
     create_db()
+
 
