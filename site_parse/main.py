@@ -105,18 +105,23 @@ def parse_yas_island(driver):
     try:
         driver.get('https://www.yasisland.com/en/events')
         time.sleep(3)
-        cards = driver.find_elements(By.CLASS_NAME, 'tile--card')
+        cards = driver.find_elements(By.CLASS_NAME, 'card-wrapper')
         for card in cards:
             try:
-                title = card.find_element(By.CLASS_NAME, 'tile__title').text
-                description = card.find_element(By.CLASS_NAME, 'tile__text').text
-                link_elem = card.find_element(By.TAG_NAME, 'a')
+                title = card.find_element(By.CLASS_NAME, 'card-title').text.strip()
+                description = card.find_element(By.CLASS_NAME, 'card-description').text.strip()
+                link_elem = card.find_element(By.CLASS_NAME, 'card-cta').find_element(By.TAG_NAME, 'a')
+                link_text = link_elem.text.strip()
+                link_url = link_elem.get_attribute('href')
+                if link_url and not link_url.startswith("http"):
+                    link_url = "https://www.yasisland.com" + link_url
+
                 event = {
                     'source': 'Yas Island',
                     'title': title,
                     'description': description,
-                    'link_text': link_elem.text,
-                    'link_url': link_elem.get_attribute('href'),
+                    'link_text': link_text,
+                    'link_url': link_url,
                     'event_date': ''
                 }
                 insert_event_if_new(event)
@@ -126,29 +131,46 @@ def parse_yas_island(driver):
         print(f"⚠️ Ошибка Yas Island: {e}")
 
 
+
 def parse_etihad_arena(driver):
     try:
         driver.get('https://www.etihadarena.ae/en/events')
         time.sleep(3)
-        cards = driver.find_elements(By.CLASS_NAME, 'event-card')
+
+        # Извлекаем все карточки событий
+        cards = driver.find_elements(By.CLASS_NAME, 'editorial-item')
+
         for card in cards:
             try:
-                title = card.find_element(By.CLASS_NAME, 'event-card__title').text
-                description = card.find_element(By.CLASS_NAME, 'event-card__description').text
-                link_elem = card.find_element(By.TAG_NAME, 'a')
+                # Извлекаем дату события
+                event_date = card.find_element(By.CLASS_NAME, 'editorial-item--title').text.strip()
+
+                # Извлекаем название события
+                title = card.find_element(By.CLASS_NAME, 'gridTitle').text.strip()
+
+                # Извлекаем описание события
+                description = card.find_element(By.CLASS_NAME, 'descriptions').text.strip()
+
+                # Извлекаем ссылку на событие
+                link_elem = card.find_element(By.CLASS_NAME, 'btn-primary')
+                link_text = link_elem.text.strip()  # Кнопка "BUY TICKETS"
+                link_url = link_elem.get_attribute('href')
+
                 event = {
                     'source': 'Etihad Arena',
                     'title': title,
                     'description': description,
-                    'link_text': link_elem.text,
-                    'link_url': link_elem.get_attribute('href'),
-                    'event_date': ''
+                    'link_text': link_text,
+                    'link_url': link_url,
+                    'event_date': event_date
                 }
+
                 insert_event_if_new(event)
+
             except Exception as e:
                 print(f"⚠️ Ошибка в карточке Etihad: {e}")
     except Exception as e:
-        print(f"⚠️ Ошибка Etihad: {e}")
+        print(f"⚠️ Ошибка при извлечении событий с Etihad: {e}")
 
 
 def parse_ticketmaster(driver):
