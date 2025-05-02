@@ -6,7 +6,7 @@ from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
 
 # Путь к базе данных
-DB_PATH = 'db/event_status.db'
+DB_PATH ='/root/telegram_watcher/telegram_bot/create.db/db/event_status.db'
 
 # Настройки бота
 TELEGRAM_TOKEN = '8138626595:AAFu3zUR8HqvZag9j1FYbj9BnQfIqRQR7xg'
