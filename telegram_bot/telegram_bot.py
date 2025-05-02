@@ -1,16 +1,21 @@
 import asyncio
+import os
 import sqlite3
 import logging
 from datetime import datetime
 from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
 
+
+from dotenv import load_dotenv
+load_dotenv()
+
 # Путь к базе данных
 DB_PATH ='/root/telegram_watcher/telegram_bot/create.db/db/event_status.db'
 
 # Настройки бота
-TELEGRAM_TOKEN = '8138626595:AAFu3zUR8HqvZag9j1FYbj9BnQfIqRQR7xg'
-GROUP_CHAT_ID = -1002688502308
+TOKEN = os.getenv("BOT_TOKEN")
+CHAT_ID = os.getenv("CHAT_ID")
 
 # Логирование
 logging.basicConfig(level=logging.INFO)
