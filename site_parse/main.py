@@ -151,16 +151,25 @@ def parse_etihad_arena():
         driver = create_driver()
         driver.get('https://www.etihadarena.ae/en/events')
         time.sleep(3)
+
         cards = driver.find_elements(By.CLASS_NAME, 'editorial-item')
+        print(f"🔍 Найдено карточек Etihad Arena: {len(cards)}")
+
+        current_urls = []
 
         for card in cards:
             try:
-                event_date = card.find_element(By.CLASS_NAME, 'editorial-item--title').text.strip()
                 title = card.find_element(By.CLASS_NAME, 'gridTitle').text.strip()
                 description = card.find_element(By.CLASS_NAME, 'descriptions').text.strip()
-                link_elem = card.find_element(By.CLASS_NAME, 'btn-primary')
+                link_elem = card.find_element(By.TAG_NAME, 'a')
                 link_text = link_elem.text.strip()
                 link_url = link_elem.get_attribute('href')
+                current_urls.append(link_url)
+
+                try:
+                    event_date = card.find_element(By.CLASS_NAME, 'editorial-item--title').text.strip()
+                except:
+                    event_date = ''
 
                 event = {
                     'source': 'Etihad Arena',
@@ -172,12 +181,29 @@ def parse_etihad_arena():
                 }
 
                 insert_event_if_new(event)
+
             except Exception as e:
-                print(f"⚠️ Ошибка в карточке Etihad: {e}")
+                print(f"⚠️ Ошибка в карточке Etihad Arena: {e}")
+
+        # Удалим из базы события, которых больше нет на сайте
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        cursor.execute("SELECT link_url FROM events WHERE source = ?", ('Etihad Arena',))
+        saved_urls = [row[0] for row in cursor.fetchall()]
+
+        for url in saved_urls:
+            if url not in current_urls:
+                cursor.execute("DELETE FROM events WHERE link_url = ?", (url,))
+                print(f"🗑️ Удалено устаревшее событие Etihad Arena: {url}")
+
+        conn.commit()
+        conn.close()
+
     except Exception as e:
-        print(f"⚠️ Ошибка при извлечении событий с Etihad: {e}")
+        print(f"⚠️ Ошибка при извлечении событий с Etihad Arena: {e}")
     finally:
         driver.quit()
+
 
 
 def main_loop():
