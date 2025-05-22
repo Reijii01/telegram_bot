@@ -161,9 +161,16 @@ def parse_etihad_arena():
             try:
                 title = card.find_element(By.CLASS_NAME, 'gridTitle').text.strip()
                 description = card.find_element(By.CLASS_NAME, 'descriptions').text.strip()
-                link_elem = card.find_element(By.TAG_NAME, 'a')
-                link_text = link_elem.text.strip()
-                link_url = link_elem.get_attribute('href')
+
+                # Поиск ссылки глубже (на случай вложенности)
+                try:
+                    link_elem = card.find_element(By.CSS_SELECTOR, 'a[href]')
+                    link_text = link_elem.text.strip()
+                    link_url = link_elem.get_attribute('href')
+                except:
+                    link_text = ''
+                    link_url = ''
+
                 current_urls.append(link_url)
 
                 try:
@@ -185,7 +192,7 @@ def parse_etihad_arena():
             except Exception as e:
                 print(f"⚠️ Ошибка в карточке Etihad Arena: {e}")
 
-        # Удалим из базы события, которых больше нет на сайте
+        # Удаление устаревших событий
         conn = sqlite3.connect(DB_PATH)
         cursor = conn.cursor()
         cursor.execute("SELECT link_url FROM events WHERE source = ?", ('Etihad Arena',))
