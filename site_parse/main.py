@@ -9,7 +9,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 
-DB_PATH = '/root/telegram_watcher/telegram_bot/create.db/db/event_status.db'
+DB_PATH = '/home/reijiii/telegram_bot/create.db/db/event_status.db'
 
 
 def create_driver():
@@ -85,8 +85,9 @@ def insert_event_if_new(event):
         print(f"❌ Ошибка вставки события: {e}")
 
 
-def parse_single_event(driver):
+def parse_single_event():
     try:
+        driver = create_driver()
         driver.get("https://www.etihadarena.ae/en/event-booking/2025-turkish-airlines-euroleague-f4")
         driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
         time.sleep(10)
@@ -99,10 +100,13 @@ def parse_single_event(driver):
         save_status_to_db(status)
     except Exception as e:
         print(f"❌ Ошибка при парсинге Euroleague: {e}")
+    finally:
+        driver.quit()
 
 
-def parse_yas_island(driver):
+def parse_yas_island():
     try:
+        driver = create_driver()
         driver.get('https://www.yasisland.com/en/events')
         time.sleep(3)
         cards = driver.find_elements(By.CLASS_NAME, 'card-wrapper')
@@ -129,31 +133,24 @@ def parse_yas_island(driver):
                 print(f"⚠️ Ошибка в карточке Yas Island: {e}")
     except Exception as e:
         print(f"⚠️ Ошибка Yas Island: {e}")
+    finally:
+        driver.quit()
 
 
-
-def parse_etihad_arena(driver):
+def parse_etihad_arena():
     try:
+        driver = create_driver()
         driver.get('https://www.etihadarena.ae/en/events')
         time.sleep(3)
-
-        # Извлекаем все карточки событий
         cards = driver.find_elements(By.CLASS_NAME, 'editorial-item')
 
         for card in cards:
             try:
-                # Извлекаем дату события
                 event_date = card.find_element(By.CLASS_NAME, 'editorial-item--title').text.strip()
-
-                # Извлекаем название события
                 title = card.find_element(By.CLASS_NAME, 'gridTitle').text.strip()
-
-                # Извлекаем описание события
                 description = card.find_element(By.CLASS_NAME, 'descriptions').text.strip()
-
-                # Извлекаем ссылку на событие
                 link_elem = card.find_element(By.CLASS_NAME, 'btn-primary')
-                link_text = link_elem.text.strip()  # Кнопка "BUY TICKETS"
+                link_text = link_elem.text.strip()
                 link_url = link_elem.get_attribute('href')
 
                 event = {
@@ -166,66 +163,27 @@ def parse_etihad_arena(driver):
                 }
 
                 insert_event_if_new(event)
-
             except Exception as e:
                 print(f"⚠️ Ошибка в карточке Etihad: {e}")
     except Exception as e:
         print(f"⚠️ Ошибка при извлечении событий с Etihad: {e}")
-
-
-def parse_ticketmaster(driver):
-    try:
-        driver.get('https://www.ticketmaster.ae')
-        time.sleep(3)
-        container = driver.find_element(By.CSS_SELECTOR, '[data-testid="eventList"]')
-        cards = container.find_elements(By.CLASS_NAME, 'sc-3a43054f-4')
-        for card in cards:
-            try:
-                title = card.find_element(By.CLASS_NAME, 'sc-3a43054f-9').text
-                description = card.find_element(By.CLASS_NAME, 'sc-3a43054f-13').text
-                link_elem = card.find_element(By.TAG_NAME, 'a')
-                event_date = card.find_element(By.CLASS_NAME, 'sc-3a43054f-12').text
-                event = {
-                    'source': 'Ticketmaster',
-                    'title': title,
-                    'description': description,
-                    'link_text': '',
-                    'link_url': link_elem.get_attribute('href'),
-                    'event_date': event_date
-                }
-                insert_event_if_new(event)
-            except Exception as e:
-                print(f"⚠️ Ошибка в карточке Ticketmaster: {e}")
-    except Exception as e:
-        print(f"⚠️ Ошибка eventList: {e}")
-
-
-def main_loop():
-    init_db()
-    driver = create_driver()
-    driver_start_time = time.time()
-
-    try:
-        while True:
-            if time.time() - driver_start_time > 43200:
-                print("🔄 Перезапуск драйвера после 12 часов...")
-                driver.quit()
-                driver = create_driver()
-                driver_start_time = time.time()
-
-            parse_single_event(driver)
-            parse_yas_island(driver)
-            parse_etihad_arena(driver)
-            parse_ticketmaster(driver)
-
-            print("⏳ Ожидание 60 секунд...\n")
-            time.sleep(60)
-
-    except KeyboardInterrupt:
-        print("🛑 Остановлено пользователем.")
     finally:
         driver.quit()
 
 
+def main_loop():
+    init_db()
+    try:
+        while True:
+            parse_single_event()
+            parse_etihad_arena()
+            parse_yas_island()
+            print("⏳ Ожидание 60 секунд...\n")
+            time.sleep(60)
+    except KeyboardInterrupt:
+        print("🛑 Остановлено пользователем.")
+
+
 if __name__ == '__main__':
     main_loop()
+
