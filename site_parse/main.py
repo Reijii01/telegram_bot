@@ -108,18 +108,22 @@ def parse_yas_island():
     try:
         driver = create_driver()
         driver.get('https://www.yasisland.com/en/events')
-        time.sleep(5)  # можно заменить на WebDriverWait для стабильности
+        time.sleep(5)  # Лучше заменить на WebDriverWait
 
-        cards = driver.find_elements(By.CSS_SELECTOR, 'div[data-index] > div.card-wrapper')
+        # Новый селектор для реальных карточек
+        cards = driver.find_elements(By.CSS_SELECTOR, 'li.yas-feature-tile-wrapper')
         print(f"🔍 Найдено карточек Yas Island: {len(cards)}")
 
         for card in cards:
             try:
-                title = card.find_element(By.CLASS_NAME, 'card-title').text.strip()
-                description = card.find_element(By.CLASS_NAME, 'card-description').text.strip()
-                link_elem = card.find_element(By.CLASS_NAME, 'card-cta').find_element(By.TAG_NAME, 'a')
+                title = card.find_element(By.CSS_SELECTOR, 'h3').text.strip()
+                description = card.find_element(By.CSS_SELECTOR, '.card-description p').text.strip()
+                date = card.find_element(By.CSS_SELECTOR, '.card-location p').text.strip()
+                link_elem = card.find_element(By.CSS_SELECTOR, '.card-cta a')
                 link_text = link_elem.text.strip()
                 link_url = link_elem.get_attribute('href')
+
+                # Обработка относительных ссылок
                 if link_url and not link_url.startswith("http"):
                     link_url = "https://www.yasisland.com" + link_url
 
@@ -129,9 +133,11 @@ def parse_yas_island():
                     'description': description,
                     'link_text': link_text,
                     'link_url': link_url,
-                    'event_date': ''
+                    'event_date': date
                 }
+
                 insert_event_if_new(event)
+
             except Exception as e:
                 print(f"⚠️ Ошибка в карточке Yas Island: {e}")
     except Exception as e:
