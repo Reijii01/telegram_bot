@@ -108,8 +108,11 @@ def parse_yas_island():
     try:
         driver = create_driver()
         driver.get('https://www.yasisland.com/en/events')
-        time.sleep(3)
-        cards = driver.find_elements(By.CLASS_NAME, 'card-wrapper')
+        time.sleep(5)  # можно заменить на WebDriverWait для стабильности
+
+        cards = driver.find_elements(By.CSS_SELECTOR, 'div[data-index] > div.card-wrapper')
+        print(f"🔍 Найдено карточек Yas Island: {len(cards)}")
+
         for card in cards:
             try:
                 title = card.find_element(By.CLASS_NAME, 'card-title').text.strip()
