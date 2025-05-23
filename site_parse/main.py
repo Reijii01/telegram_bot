@@ -146,6 +146,56 @@ def parse_yas_island():
         driver.quit()
 
 
+def insert_or_update_event(event):
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+
+    cursor.execute("SELECT title, description, link_text, event_date FROM events WHERE link_url = ?",
+                   (event['link_url'],))
+    existing = cursor.fetchone()
+
+    if existing:
+        title_db, description_db, link_text_db, event_date_db = existing
+
+        # Проверяем, изменилось ли что-то
+        if (event['title'] != title_db or
+                event['description'] != description_db or
+                event['link_text'] != link_text_db or
+                event['event_date'] != event_date_db):
+
+            cursor.execute("""
+                UPDATE events
+                SET title = ?, description = ?, link_text = ?, event_date = ?
+                WHERE link_url = ?
+            """, (
+                event['title'],
+                event['description'],
+                event['link_text'],
+                event['event_date'],
+                event['link_url']
+            ))
+            print(f"🔄 Обновлено событие: {event['title']}")
+        else:
+            print(f"🟰 Без изменений: {event['title']}")
+
+    else:
+        cursor.execute("""
+            INSERT INTO events (source, title, description, link_text, link_url, event_date)
+            VALUES (?, ?, ?, ?, ?, ?)
+        """, (
+            event['source'],
+            event['title'],
+            event['description'],
+            event['link_text'],
+            event['link_url'],
+            event['event_date']
+        ))
+        print(f"✅ Добавлено новое событие: {event['title']}")
+
+    conn.commit()
+    conn.close()
+
+
 def parse_etihad_arena():
     try:
         driver = create_driver()
@@ -187,7 +237,7 @@ def parse_etihad_arena():
                     'event_date': event_date
                 }
 
-                insert_event_if_new(event)
+                insert_or_update_event(event)
 
             except Exception as e:
                 print(f"⚠️ Ошибка в карточке Etihad Arena: {e}")
@@ -204,12 +254,14 @@ def parse_etihad_arena():
                 print(f"🗑️ Удалено устаревшее событие Etihad Arena: {url}")
 
         conn.commit()
+
         conn.close()
 
     except Exception as e:
         print(f"⚠️ Ошибка при извлечении событий с Etihad Arena: {e}")
     finally:
         driver.quit()
+
 
 
 
