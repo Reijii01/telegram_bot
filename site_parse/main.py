@@ -199,7 +199,7 @@ def insert_or_update_event(event):
 def parse_etihad_arena():
     try:
         driver = create_driver()
-        driver.get('https://www.etihadarena.ae/en/events')
+        driver.get('https://www.etihadarena.ae')
         time.sleep(3)
 
         cards = driver.find_elements(By.CLASS_NAME, 'editorial-item')
