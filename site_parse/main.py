@@ -9,7 +9,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 
-DB_PATH = '/home/reijiii/telegram_bot/create.db/db/event_status.db'
+DB_PATH = '/root/telegram_watcher/telegram_bot/create.db/db/event_status.db'
 
 
 def create_driver():
