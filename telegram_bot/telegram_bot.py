@@ -9,18 +9,18 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-# Путь к базе данных
+
 DB_PATH = '/root/telegram_watcher/telegram_bot/create.db/db/event_status.db'
 
-# Настройки бота
+
 TOKEN = os.getenv("BOT_TOKEN")
 CHAT_ID = os.getenv("CHAT_ID")
 
-# Логирование
+
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Получение текущего статуса события и времени обновления
+
 def get_event_status():
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
@@ -33,7 +33,7 @@ def get_event_status():
     else:
         return None, None
 
-# Получение списка событий и времени их последнего обновления
+
 def get_events():
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
@@ -42,17 +42,17 @@ def get_events():
     conn.close()
     return results
 
-# Хендлер для личных сообщений
+
 async def private_message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_chat.type == 'private':
         await update.message.reply_text("🔒 Я работаю только в группе. Следите за обновлениями там!")
 
-# Хендлер команды /start01
+
 async def start01_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_chat.type in ['group', 'supergroup']:
         await update.message.reply_text("✅ Бот успешно запущен и мониторит статус событий!")
 
-# Хендлер команды /status
+
 async def status_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_chat.type in ['group', 'supergroup']:
         status, updated_at = get_event_status()
@@ -69,7 +69,7 @@ async def status_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         else:
             await update.message.reply_text("⚠️ Статус события пока не найден.")
 
-# Хендлер команды /events
+
 async def events_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_chat.type in ['group', 'supergroup']:
         events = get_events()
@@ -80,7 +80,7 @@ async def events_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     dt = datetime.fromisoformat(event_date)
                     event_time_str = dt.strftime('%d.%m.%Y %H:%M')
                 except ValueError:
-                    event_time_str = event_date  # если дата в другом формате
+                    event_time_str = event_date  
 
                 if updated_at:
                     try:
@@ -95,7 +95,7 @@ async def events_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         else:
             await update.message.reply_text("⚠️ События не найдены.")
 
-# Фоновая задача мониторинга базы данных
+
 async def monitor_db(application: Application):
     await asyncio.sleep(5)
     logger.info("🚀 Мониторинг базы данных запущен.")
@@ -103,29 +103,29 @@ async def monitor_db(application: Application):
 
     while True:
         current_events = get_events()
-        # Сравниваем только измененные события
+       
         if current_events != last_events:
             logger.info("📢 Обновления в событиях.")
-            # Отправляем обновления
+            
             for _, title, event_date, _ in current_events:
                 await application.bot.send_message(chat_id=CHAT_ID, text=f"Событие обновлено: {title} — Время: {event_date}")
             last_events = current_events
         await asyncio.sleep(60)
 
-# Основная функция запуска бота
+
 def main():
     application = Application.builder().token(TOKEN).build()
 
-    # Хендлеры
+    
     application.add_handler(CommandHandler("start01", start01_command))
     application.add_handler(CommandHandler("status", status_command))
     application.add_handler(CommandHandler("events", events_command))
     application.add_handler(MessageHandler(filters.ChatType.PRIVATE, private_message_handler))
 
-    # Фоновая задача мониторинга базы
+    
     application.job_queue.run_once(lambda context: asyncio.create_task(monitor_db(application)), when=0)
 
-    # Запуск бота
+    
     application.run_polling()
 
 if __name__ == '__main__':
