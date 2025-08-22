@@ -108,9 +108,9 @@ def parse_yas_island():
     try:
         driver = create_driver()
         driver.get('https://www.yasisland.com/en/events')
-        time.sleep(5)  # Лучше заменить на WebDriverWait
+        time.sleep(5)  
 
-        # Новый селектор для реальных карточек
+        
         cards = driver.find_elements(By.CSS_SELECTOR, 'li.yas-feature-tile-wrapper')
         print(f"🔍 Найдено карточек Yas Island: {len(cards)}")
 
@@ -123,7 +123,7 @@ def parse_yas_island():
                 link_text = link_elem.text.strip()
                 link_url = link_elem.get_attribute('href')
 
-                # Обработка относительных ссылок
+                
                 if link_url and not link_url.startswith("http"):
                     link_url = "https://www.yasisland.com" + link_url
 
@@ -157,7 +157,7 @@ def insert_or_update_event(event):
     if existing:
         title_db, description_db, link_text_db, event_date_db = existing
 
-        # Проверяем, изменилось ли что-то
+        
         if (event['title'] != title_db or
                 event['description'] != description_db or
                 event['link_text'] != link_text_db or
@@ -212,7 +212,7 @@ def parse_etihad_arena():
                 title = card.find_element(By.CLASS_NAME, 'gridTitle').text.strip()
                 description = card.find_element(By.CLASS_NAME, 'descriptions').text.strip()
 
-                # Поиск ссылки глубже (на случай вложенности)
+                
                 try:
                     link_elem = card.find_element(By.CSS_SELECTOR, 'a[href]')
                     link_text = link_elem.text.strip()
@@ -242,7 +242,7 @@ def parse_etihad_arena():
             except Exception as e:
                 print(f"⚠️ Ошибка в карточке Etihad Arena: {e}")
 
-        # Удаление устаревших событий
+        
         conn = sqlite3.connect(DB_PATH)
         cursor = conn.cursor()
         cursor.execute("SELECT link_url FROM events WHERE source = ?", ('Etihad Arena',))
